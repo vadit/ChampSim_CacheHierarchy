@@ -40,7 +40,7 @@ CACHE::CACHE(CACHE&& other)
       cpu(other.cpu), NAME(std::move(other.NAME)), NUM_SET(other.NUM_SET), NUM_WAY(other.NUM_WAY), MSHR_SIZE(other.MSHR_SIZE), PQ_SIZE(other.PQ_SIZE),
       HIT_LATENCY(other.HIT_LATENCY), FILL_LATENCY(other.FILL_LATENCY), OFFSET_BITS(other.OFFSET_BITS), block(std::move(other.block)), MAX_TAG(other.MAX_TAG),
       MAX_FILL(other.MAX_FILL), prefetch_as_load(other.prefetch_as_load), match_offset_bits(other.match_offset_bits), virtual_prefetch(other.virtual_prefetch),
-      pref_activate_mask(std::move(other.pref_activate_mask)),
+      pref_activate_mask(std::move(other.pref_activate_mask)), inclusion(other.inclusion), upper_caches(std::move(other.upper_caches)),
 
       sim_stats(std::move(other.sim_stats)), roi_stats(std::move(other.roi_stats)),
 
@@ -79,6 +79,8 @@ auto CACHE::operator=(CACHE&& other) -> CACHE&
   this->match_offset_bits = other.match_offset_bits;
   this->virtual_prefetch = other.virtual_prefetch;
   this->pref_activate_mask = std::move(other.pref_activate_mask);
+  this->inclusion = other.inclusion;
+  this->upper_caches = std::move(other.upper_caches);
 
   this->sim_stats = std::move(other.sim_stats);
   this->roi_stats = std::move(other.roi_stats);
@@ -179,7 +181,13 @@ bool CACHE::handle_fill(const fill_type& fill)
   assert(set_begin <= way);
   assert(way <= set_end);
   assert(way != set_end || fill.type != access_type::WRITE); // Writes may not bypass
-  const auto way_idx = std::distance(set_begin, way);        // cast protected by earlier assertion
+
+  // An inclusive cache may not bypass: every block held above must also be held here.
+  // Replacement policies should consult bypass_allowed(); if one bypasses anyway, fall back to the first way.
+  if (way == set_end && !bypass_allowed()) {
+    way = set_begin;
+  }
+  const auto way_idx = std::distance(set_begin, way); // cast protected by earlier assertion
 
   if constexpr (champsim::debug_print) {
     fmt::print("[{}] {} instr_id: {} address: {} v_address: {} set: {} way: {} type: {} prefetch_metadata: {} cycle_enqueued: {} cycle: {}\n", NAME, __func__,
@@ -187,7 +195,12 @@ bool CACHE::handle_fill(const fill_type& fill)
                fill.data_promise->pf_metadata, (fill.time_enqueued.time_since_epoch()) / clock_period, (current_time.time_since_epoch()) / clock_period);
   }
 
-  if (way != set_end && way->valid && way->dirty) {
+  // Under an inclusive policy, the evicted block must also leave the upper levels. If any upper copy is dirty,
+  // the most recent data lives there, so the eviction must be written back even if our copy is clean.
+  const bool evicting_valid = (way != set_end && way->valid);
+  const bool upper_dirty = evicting_valid && is_inclusive() && upper_holds_dirty(way->address);
+
+  if (evicting_valid && (way->dirty || upper_dirty)) {
     request_type writeback_packet;
 
     writeback_packet.cpu = fill.cpu;
@@ -208,6 +221,19 @@ bool CACHE::handle_fill(const fill_type& fill)
     if (!success) {
       return false;
     }
+
+    if (upper_dirty && !way->dirty) {
+      ++sim_stats.back_inval_dirty;
+    }
+  }
+
+  // Back-invalidate only once the writeback (if any) has been accepted, so a retried fill sees the same upper state.
+  if (evicting_valid && is_inclusive()) {
+    long invalidated = 0;
+    for (auto* ul : upper_caches) {
+      invalidated += ul->back_invalidate(way->address);
+    }
+    sim_stats.back_inval_issued += static_cast<uint64_t>(invalidated);
   }
 
   champsim::address evicting_address{};
@@ -569,6 +595,40 @@ long CACHE::invalidate_entry(champsim::address inval_addr)
   return std::distance(begin, inv_way);
 }
 
+bool CACHE::upper_holds_dirty(champsim::address addr) const
+{
+  return std::any_of(std::begin(upper_caches), std::end(upper_caches), [addr](const CACHE* ul) {
+    auto [begin, end] = ul->get_set_span(addr);
+    auto match = std::find_if(begin, end, [matcher = ul->matches_address(addr)](const auto& x) { return x.valid && matcher(x); });
+    return (match != end && match->dirty) || ul->upper_holds_dirty(addr);
+  });
+}
+
+long CACHE::back_invalidate(champsim::address addr)
+{
+  long invalidated = 0;
+  for (auto* ul : upper_caches) {
+    invalidated += ul->back_invalidate(addr);
+  }
+
+  auto [begin, end] = get_set_span(addr);
+  auto match = std::find_if(begin, end, [matcher = matches_address(addr)](const auto& x) { return x.valid && matcher(x); });
+  if (match != end) {
+    if (match->prefetch) {
+      ++sim_stats.pf_useless;
+    }
+    match->valid = false;
+    ++sim_stats.back_inval_received;
+    ++invalidated;
+
+    if constexpr (champsim::debug_print) {
+      fmt::print("[{}] {} address: {} cycle: {}\n", NAME, __func__, addr, current_time.time_since_epoch() / clock_period);
+    }
+  }
+
+  return invalidated;
+}
+
 bool CACHE::prefetch_line(champsim::address pf_addr, bool fill_this_level, uint32_t prefetch_metadata)
 {
   ++sim_stats.pf_requested;
@@ -872,6 +932,10 @@ void CACHE::end_phase(unsigned finished_cpu)
   roi_stats.pf_useful = sim_stats.pf_useful;
   roi_stats.pf_useless = sim_stats.pf_useless;
   roi_stats.pf_fill = sim_stats.pf_fill;
+
+  roi_stats.back_inval_issued = sim_stats.back_inval_issued;
+  roi_stats.back_inval_received = sim_stats.back_inval_received;
+  roi_stats.back_inval_dirty = sim_stats.back_inval_dirty;
 
   for (auto* ul : upper_levels) {
     ul->roi_stats.RQ_ACCESS = ul->sim_stats.RQ_ACCESS;

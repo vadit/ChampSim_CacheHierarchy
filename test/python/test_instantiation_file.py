@@ -304,3 +304,23 @@ class GetQueueInfoTests(unittest.TestCase):
             { 'is_good_boy': False }
         ]
         self.assertEqual(expected, evaluated)
+
+class UpperCacheLinkTest(unittest.TestCase):
+
+    def test_links_follow_lower_level(self):
+        caches = [
+            {'name': 'LLC', 'lower_level': 'DRAM'},
+            {'name': 'L2C', 'lower_level': 'LLC'},
+            {'name': 'L1D', 'lower_level': 'L2C'},
+            {'name': 'L1I', 'lower_level': 'L2C'}
+        ]
+        lines = list(config.instantiation_file.get_upper_cache_links(caches))
+        self.assertEqual(lines, [
+            'caches.at(0).upper_caches = {&caches.at(1)}; // LLC',
+            'caches.at(1).upper_caches = {&caches.at(2), &caches.at(3)}; // L2C'
+        ])
+
+    def test_inclusion_builder_part(self):
+        self.assertIn('_inclusion', config.instantiation_file.cache_builder_parts)
+        self.assertEqual(config.instantiation_file.cache_builder_parts['_inclusion'].format(_inclusion='inclusive'),
+                         '.inclusion(champsim::inclusion_policy::inclusive)')

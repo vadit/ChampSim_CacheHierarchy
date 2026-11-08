@@ -3,6 +3,7 @@
   "block_size": 64,
   "page_size": 4096,
   "heartbeat_frequency": 10000000,
+  "inclusion_policy": "non-inclusive",
   "num_cores": 1,
 
   "ooo_cpu": [

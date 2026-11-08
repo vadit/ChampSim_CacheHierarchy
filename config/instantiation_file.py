@@ -89,6 +89,7 @@ cache_builder_parts = {
     '_prefetcher_data': '.prefetcher<{^prefetcher_string}>()',
     'lower_translate': '.lower_translate(&{^lower_translate_queues})',
     'lower_level': '.lower_level(&{^lower_level_queues})',
+    '_inclusion': '.inclusion(champsim::inclusion_policy::{_inclusion})',
     'frequency': '.clock_period(champsim::chrono::picoseconds{{{^clock_period}}})'
 }
 
@@ -316,6 +317,16 @@ def decorate_queues(caches, ptws, pmem):
 def get_queue_info(ul_pairs, decoration):
     return [decoration.get(ll) for ll,_ in ul_pairs]
 
+def get_upper_cache_links(caches):
+    '''
+    Generate C++ statements that tell each cache which caches sit directly above it.
+    These links are used to enforce the inclusion policy (back-invalidation).
+    '''
+    for i, cache in enumerate(caches):
+        uppers = [j for j, other in enumerate(caches) if other.get('lower_level') == cache['name']]
+        if uppers:
+            yield f'caches.at({i}).upper_caches = {{{", ".join(f"&caches.at({j})" for j in uppers)}}}; // {cache["name"]}'
+
 def get_instantiation_lines(cores, caches, ptws, pmem, vmem, build_id):
     '''
     Generate the lines for a C++ file that instantiates a configuration.
@@ -395,6 +406,7 @@ def get_instantiation_lines(cores, caches, ptws, pmem, vmem, build_id):
     yield from cache_instantiation_body
     yield from core_instantiation_body
     yield '{'
+    yield from ('  '+l for l in get_upper_cache_links(caches))
     yield '}'
     yield ''
 

@@ -32,6 +32,17 @@
 class CACHE;
 namespace champsim
 {
+/**
+ * The inclusion policy of a cache with respect to the caches above it.
+ *
+ *  - non_inclusive: (default, ChampSim's historical behavior) the contents of this cache are independent of the
+ *    contents of the upper levels. Evictions here do not affect upper levels, and the replacement policy may bypass.
+ *  - inclusive: every block held by an upper-level cache is also held by this cache. When this cache evicts a block,
+ *    every copy in the upper levels is back-invalidated (dirty upper copies are written back to the lower level).
+ *    Fills into an inclusive cache may not bypass.
+ */
+enum class inclusion_policy { non_inclusive, inclusive };
+
 class channel;
 template <typename... Ts>
 class cache_builder_module_type_holder
@@ -57,6 +68,7 @@ struct cache_builder_base {
   bool m_pref_load{};
   bool m_wq_full_addr{};
   bool m_va_pref{};
+  inclusion_policy m_inclusion{inclusion_policy::non_inclusive};
 
   std::vector<access_type> m_pref_act_mask{access_type::LOAD, access_type::PREFETCH};
   std::vector<champsim::channel*> m_uls{};
@@ -211,6 +223,21 @@ public:
    * Specify that prefetchers should operate in the physical address space.
    */
   self_type& reset_virtual_prefetch();
+
+  /**
+   * Specify the inclusion policy of this cache with respect to its upper levels.
+   */
+  self_type& inclusion(inclusion_policy inclusion_);
+
+  /**
+   * Shorthand for ``inclusion(inclusion_policy::inclusive)``.
+   */
+  self_type& set_inclusive();
+
+  /**
+   * Shorthand for ``inclusion(inclusion_policy::non_inclusive)``.
+   */
+  self_type& reset_inclusive();
 
   /**
    * Specify the ``access_type`` values that should activate the prefetcher.
@@ -482,6 +509,27 @@ template <typename P, typename R>
 auto champsim::cache_builder<P, R>::reset_virtual_prefetch() -> self_type&
 {
   m_va_pref = false;
+  return *this;
+}
+
+template <typename P, typename R>
+auto champsim::cache_builder<P, R>::inclusion(inclusion_policy inclusion_) -> self_type&
+{
+  m_inclusion = inclusion_;
+  return *this;
+}
+
+template <typename P, typename R>
+auto champsim::cache_builder<P, R>::set_inclusive() -> self_type&
+{
+  m_inclusion = inclusion_policy::inclusive;
+  return *this;
+}
+
+template <typename P, typename R>
+auto champsim::cache_builder<P, R>::reset_inclusive() -> self_type&
+{
+  m_inclusion = inclusion_policy::non_inclusive;
   return *this;
 }
 

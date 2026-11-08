@@ -124,6 +124,11 @@ std::vector<std::string> champsim::plain_printer::format(CACHE::stats_type stats
         fmt::format("cpu{}->{} AVERAGE MISS LATENCY: {} cycles", cpu, stats.name, ::print_ratio(stats.total_miss_latency_cycles, total_downstream_demands)));
   }
 
+  if (stats.back_inval_issued > 0 || stats.back_inval_received > 0) {
+    lines.push_back(fmt::format("{} BACK-INVALIDATIONS ISSUED: {:10} RECEIVED: {:10} DIRTY WRITEBACKS: {:10}", stats.name, stats.back_inval_issued,
+                                stats.back_inval_received, stats.back_inval_dirty));
+  }
+
   return lines;
 }
 

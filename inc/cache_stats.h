@@ -24,6 +24,11 @@ struct cache_stats {
   champsim::stats::event_counter<std::pair<access_type, std::remove_cv_t<decltype(NUM_CPUS)>>> fill = {};
 
   long total_miss_latency_cycles{};
+
+  // inclusion stats
+  uint64_t back_inval_issued = 0;   // upper-level blocks invalidated because this (inclusive) cache evicted them
+  uint64_t back_inval_received = 0; // blocks in this cache invalidated because a lower inclusive cache evicted them
+  uint64_t back_inval_dirty = 0;    // evictions from this cache that were written back because an upper copy was dirty
 };
 
 cache_stats operator-(cache_stats lhs, cache_stats rhs);

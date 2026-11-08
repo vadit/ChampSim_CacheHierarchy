@@ -119,6 +119,32 @@ def int_or_prefixed_size(val):
         return int(val)
     return val
 
+inclusion_policy_names = {
+    'inclusive': 'inclusive',
+    'non-inclusive': 'non_inclusive',
+    'non_inclusive': 'non_inclusive',
+    'noninclusive': 'non_inclusive',
+    'nine': 'non_inclusive'
+}
+
+def parse_inclusion_policy(val, element_name='<root>'):
+    '''
+    Normalize an inclusion policy specification to the name of a champsim::inclusion_policy enumerator.
+
+    >>> parse_inclusion_policy('inclusive')
+    'inclusive'
+    >>> parse_inclusion_policy('Non-Inclusive')
+    'non_inclusive'
+
+    :param val: the value from the configuration file
+    :param element_name: the name of the element, for error messages
+    '''
+    key = str(val).strip().lower()
+    if key not in inclusion_policy_names:
+        valid = ', '.join(f'"{k}"' for k in inclusion_policy_names)
+        raise ValueError(f'Unknown inclusion_policy "{val}" for {element_name}. Valid values are: {valid}')
+    return inclusion_policy_names[key]
+
 def core_default_names(cpu):
     """ Apply defaults to a cpu with the given index """
     default_element_names = {n: f'{cpu["name"]}_{n}' for n in ('L1I', 'L1D', 'ITLB', 'DTLB', 'L2C', 'STLB', 'PTW')}
@@ -293,7 +319,7 @@ class NormalizedConfiguration:
             print('P: vmem', list(self.vmem.keys()))
 
         self.root = util.subdict(config_file,
-            ('block_size', 'page_size', 'heartbeat_frequency')
+            ('block_size', 'page_size', 'heartbeat_frequency', 'inclusion_policy')
         )
 
     def merge(self, rhs):
@@ -366,6 +392,14 @@ class NormalizedConfiguration:
                 **module_parse(mod_name, prefetcher_context)
             }
 
+        # The hierarchy-wide inclusion policy applies to the data caches (not TLBs) unless a cache specifies its own
+        default_inclusion = parse_inclusion_policy(root_config.get('inclusion_policy', 'non-inclusive'))
+        data_cache_names = {c['name'] for c in itertools.chain(*(util.iter_system(caches, name) for name in itertools.chain(*path_root_names[:2])))}
+        def cache_inclusion(cache):
+            if 'inclusion_policy' in cache:
+                return parse_inclusion_policy(cache['inclusion_policy'], cache['name'])
+            return default_inclusion if cache['name'] in data_cache_names else 'non_inclusive'
+
         tlb_path = itertools.chain(*(util.iter_system(caches, name) for name in itertools.chain(*path_root_names[2:])))
         data_path = itertools.chain(*(util.iter_system(caches, name) for name in itertools.chain(*path_root_names[:2])))
         caches = util.combine_named(
@@ -401,6 +435,9 @@ class NormalizedConfiguration:
             ({ 'name': k,
                 # Mark queues that need to match full addresses on collision
                '_queue_check_full_addr': cache.get('_first_level', False) or cache.get('wq_check_full_addr', False),
+
+                # Normalized inclusion policy
+               '_inclusion': cache_inclusion(cache),
 
                 # Get module path names and unique module names
                '_replacement_data': list(map(replacement_parse, util.wrap_list(cache.get('replacement', 'lru')))),

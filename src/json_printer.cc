@@ -51,6 +51,9 @@ void to_json(nlohmann::json& j, const CACHE::stats_type& stats)
   statsmap.emplace("prefetch issued", stats.pf_issued);
   statsmap.emplace("useful prefetch", stats.pf_useful);
   statsmap.emplace("useless prefetch", stats.pf_useless);
+  statsmap.emplace("back-invalidations issued", stats.back_inval_issued);
+  statsmap.emplace("back-invalidations received", stats.back_inval_received);
+  statsmap.emplace("back-invalidation dirty writebacks", stats.back_inval_dirty);
 
   uint64_t total_downstream_demands = stats.fill.total();
   for (std::size_t cpu = 0; cpu < NUM_CPUS; ++cpu)

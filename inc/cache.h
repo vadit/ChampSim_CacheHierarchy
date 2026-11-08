@@ -167,6 +167,33 @@ public:
   bool match_offset_bits;
   bool virtual_prefetch;
   std::vector<access_type> pref_activate_mask;
+  champsim::inclusion_policy inclusion;
+
+  /**
+   * The caches immediately above this one in the hierarchy (e.g. the L2Cs for the LLC).
+   * This is populated by the environment after all caches are constructed, and is used to enforce the inclusion policy.
+   * Elements that are not caches (cores, page table walkers) are not listed here.
+   */
+  std::vector<CACHE*> upper_caches{};
+
+  [[nodiscard]] bool is_inclusive() const { return inclusion == champsim::inclusion_policy::inclusive; }
+
+  /**
+   * Whether a replacement policy is permitted to bypass a fill into this cache.
+   * Bypassing an inclusive cache would violate inclusion, so it is disallowed there.
+   */
+  [[nodiscard]] bool bypass_allowed() const { return !is_inclusive(); }
+
+  /**
+   * Returns true if any cache above this one (transitively) holds a dirty copy of the block.
+   */
+  [[nodiscard]] bool upper_holds_dirty(champsim::address addr) const;
+
+  /**
+   * Invalidate the block in every cache above this one (transitively), and in this cache.
+   * Returns the number of valid blocks that were invalidated in the upper levels and this cache.
+   */
+  long back_invalidate(champsim::address addr);
 
   using stats_type = cache_stats;
 
@@ -321,7 +348,7 @@ public:
         NUM_WAY(b.get_num_ways()), MSHR_SIZE(b.get_num_mshrs()), PQ_SIZE(b.m_pq_size), HIT_LATENCY(b.get_hit_latency() * b.m_clock_period),
         FILL_LATENCY(b.get_fill_latency() * b.m_clock_period), OFFSET_BITS(b.m_offset_bits), MAX_TAG(b.get_tag_bandwidth()), MAX_FILL(b.get_fill_bandwidth()),
         prefetch_as_load(b.m_pref_load), match_offset_bits(b.m_wq_full_addr), virtual_prefetch(b.m_va_pref), pref_activate_mask(b.m_pref_act_mask),
-        pref_module_pimpl(std::make_unique<prefetcher_module_model<Ps...>>(this)), repl_module_pimpl(std::make_unique<replacement_module_model<Rs...>>(this))
+        inclusion(b.m_inclusion), pref_module_pimpl(std::make_unique<prefetcher_module_model<Ps...>>(this)), repl_module_pimpl(std::make_unique<replacement_module_model<Rs...>>(this))
   {
   }
 

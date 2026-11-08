@@ -78,6 +78,51 @@ Specifying a cache this way will create an identical L1D for each core in the co
 So far, we've only handled the single-core case.
 
 --------------------------
+Cache inclusion policy
+--------------------------
+
+Each cache has an inclusion policy that describes its relationship to the caches above it.
+Two policies are supported:
+
+``"non-inclusive"`` (default)
+    The contents of the cache are independent of the upper levels. This is ChampSim's historical behavior
+    (often called NINE, non-inclusive non-exclusive). Evictions do not affect the upper levels, and the
+    replacement policy may bypass fills.
+
+``"inclusive"``
+    Every block held by an upper-level cache is also held by this cache. When the cache evicts a block,
+    every copy in the levels above it (transitively, e.g. L2C *and* L1D for an inclusive LLC) is
+    back-invalidated. If any of those copies was dirty, the eviction is written back to the lower level even
+    when this cache's copy was clean. Fills into an inclusive cache may not bypass; replacement policies can
+    check ``CACHE::bypass_allowed()``.
+
+The policy can be set for the whole data-cache hierarchy with a top-level key::
+
+    {
+        "inclusion_policy": "inclusive"
+    }
+
+or for individual caches, which overrides the top-level value::
+
+    {
+        "inclusion_policy": "inclusive",
+        "L2C": { "inclusion_policy": "non-inclusive" }
+    }
+
+The top-level key applies only to the data caches (L1I, L1D, L2C, LLC and any caches below them). TLBs remain
+non-inclusive unless a TLB sets ``"inclusion_policy"`` itself. ``"non_inclusive"`` and ``"nine"`` are accepted
+as synonyms for ``"non-inclusive"``; any other value is an error.
+
+Caches that perform back-invalidations report them in the statistics::
+
+    LLC BACK-INVALIDATIONS ISSUED:      12345 RECEIVED:          0 DIRTY WRITEBACKS:        678
+    cpu0_L2C BACK-INVALIDATIONS ISSUED:   2345 RECEIVED:      12000 DIRTY WRITEBACKS:         12
+
+``ISSUED`` counts upper-level blocks invalidated by this cache's evictions, ``RECEIVED`` counts blocks in this
+cache invalidated by a lower inclusive cache, and ``DIRTY WRITEBACKS`` counts evictions that were written back
+only because an upper copy was dirty.
+
+--------------------------
 Multi-core configurations
 --------------------------
 

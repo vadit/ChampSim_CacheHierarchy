@@ -714,3 +714,49 @@ class PathEndInTests(unittest.TestCase):
                 path = ({'name': x} for x in range(length))
                 result = config.parse.path_end_in(path, 'last')
                 self.assertEqual(result, {'name': length-1, 'lower_level': 'last'})
+
+class InclusionPolicyTests(unittest.TestCase):
+
+    @staticmethod
+    def inclusion_by_name(config_dict):
+        test_config = config.parse.NormalizedConfiguration(config_dict)
+        result = test_config.apply_defaults_in(PassthroughContext(), PassthroughContext(), PassthroughContext(), PassthroughContext())
+        return {c['name']: c['_inclusion'] for c in result[0]['caches']}
+
+    def test_parse_names(self):
+        self.assertEqual(config.parse.parse_inclusion_policy('inclusive'), 'inclusive')
+        self.assertEqual(config.parse.parse_inclusion_policy('Inclusive'), 'inclusive')
+        for name in ('non-inclusive', 'non_inclusive', 'NonInclusive', 'NINE'):
+            with self.subTest(name=name):
+                self.assertEqual(config.parse.parse_inclusion_policy(name), 'non_inclusive')
+
+    def test_unknown_name_raises(self):
+        with self.assertRaises(ValueError):
+            config.parse.parse_inclusion_policy('exclusive-ish')
+
+    def test_default_is_non_inclusive(self):
+        result = self.inclusion_by_name({ 'ooo_cpu': [{ 'name': 'cpu0' }] })
+        self.assertEqual(set(result.values()), {'non_inclusive'})
+
+    def test_per_cache_setting(self):
+        result = self.inclusion_by_name({ 'ooo_cpu': [{ 'name': 'cpu0' }], 'LLC': { 'inclusion_policy': 'inclusive' } })
+        self.assertEqual(result['LLC'], 'inclusive')
+        self.assertEqual(result['cpu0_L2C'], 'non_inclusive')
+
+    def test_global_setting_applies_to_data_caches_only(self):
+        result = self.inclusion_by_name({ 'ooo_cpu': [{ 'name': 'cpu0' }], 'inclusion_policy': 'inclusive' })
+        for name in ('LLC', 'cpu0_L2C', 'cpu0_L1D', 'cpu0_L1I'):
+            with self.subTest(cache=name):
+                self.assertEqual(result[name], 'inclusive')
+        for name in ('cpu0_STLB', 'cpu0_DTLB', 'cpu0_ITLB'):
+            with self.subTest(cache=name):
+                self.assertEqual(result[name], 'non_inclusive')
+
+    def test_per_cache_overrides_global(self):
+        result = self.inclusion_by_name({ 'ooo_cpu': [{ 'name': 'cpu0' }], 'inclusion_policy': 'inclusive', 'L2C': { 'inclusion_policy': 'non-inclusive' } })
+        self.assertEqual(result['LLC'], 'inclusive')
+        self.assertEqual(result['cpu0_L2C'], 'non_inclusive')
+
+    def test_invalid_value_in_cache_raises(self):
+        with self.assertRaises(ValueError):
+            self.inclusion_by_name({ 'ooo_cpu': [{ 'name': 'cpu0' }], 'LLC': { 'inclusion_policy': 'sometimes' } })

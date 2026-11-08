@@ -47,6 +47,23 @@ $ bin/champsim --warmup-instructions 200000000 --simulation-instructions 5000000
 
 The number of warmup and simulation instructions given will be the number of instructions retired. Note that the statistics printed at the end of the simulation include only the simulation phase.
 
+# Cache inclusion policy
+
+Caches can be configured as `"inclusive"` or `"non-inclusive"` (the default) with the `inclusion_policy` key, either at the top level of the configuration (applies to every data cache) or inside an individual cache (overrides the top-level value):
+
+```json
+{
+  "inclusion_policy": "inclusive",
+  "L2C": { "inclusion_policy": "non-inclusive" }
+}
+```
+
+An inclusive cache back-invalidates every upper-level copy of a block it evicts, writes the block back if any of those copies was dirty, and does not allow its replacement policy to bypass. See `docs/src/Creating-a-configuration-file.rst` for details.
+
+# Mockingjay replacement policy
+
+`replacement/mockingjay` is a port of Mockingjay (Shah, Jain, Lin, HPCA 2022) to the modular replacement interface. Select it with `"replacement": "mockingjay"` (it is designed for the LLC). It derives its sampler and predictor sizes from the cache geometry, and it will not bypass in an inclusive cache.
+
 # Add your own branch predictor, data prefetchers, and replacement policy
 **Copy an empty template**
 ```
