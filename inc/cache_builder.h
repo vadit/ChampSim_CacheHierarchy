@@ -40,8 +40,12 @@ namespace champsim
  *  - inclusive: every block held by an upper-level cache is also held by this cache. When this cache evicts a block,
  *    every copy in the upper levels is back-invalidated (dirty upper copies are written back to the lower level).
  *    Fills into an inclusive cache may not bypass.
+ *  - exclusive: a block is held either by this cache or by the caches above it, never both. Fills that will be held
+ *    by an upper-level cache are not allocated here, demand hits from an upper-level cache move the block up
+ *    (invalidating it here), and upper-level caches send all of their evictions here, clean or dirty.
+ *    Requests that do not come from an upper-level cache (e.g. from a core) are treated as non-inclusive.
  */
-enum class inclusion_policy { non_inclusive, inclusive };
+enum class inclusion_policy { non_inclusive, inclusive, exclusive };
 
 class channel;
 template <typename... Ts>
@@ -238,6 +242,11 @@ public:
    * Shorthand for ``inclusion(inclusion_policy::non_inclusive)``.
    */
   self_type& reset_inclusive();
+
+  /**
+   * Shorthand for ``inclusion(inclusion_policy::exclusive)``.
+   */
+  self_type& set_exclusive();
 
   /**
    * Specify the ``access_type`` values that should activate the prefetcher.
@@ -530,6 +539,13 @@ template <typename P, typename R>
 auto champsim::cache_builder<P, R>::reset_inclusive() -> self_type&
 {
   m_inclusion = inclusion_policy::non_inclusive;
+  return *this;
+}
+
+template <typename P, typename R>
+auto champsim::cache_builder<P, R>::set_exclusive() -> self_type&
+{
+  m_inclusion = inclusion_policy::exclusive;
   return *this;
 }
 

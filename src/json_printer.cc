@@ -54,6 +54,9 @@ void to_json(nlohmann::json& j, const CACHE::stats_type& stats)
   statsmap.emplace("back-invalidations issued", stats.back_inval_issued);
   statsmap.emplace("back-invalidations received", stats.back_inval_received);
   statsmap.emplace("back-invalidation dirty writebacks", stats.back_inval_dirty);
+  statsmap.emplace("exclusive promotions", stats.excl_promotions);
+  statsmap.emplace("exclusive fills skipped", stats.excl_fills_skipped);
+  statsmap.emplace("clean victims received", stats.clean_victims_received);
 
   uint64_t total_downstream_demands = stats.fill.total();
   for (std::size_t cpu = 0; cpu < NUM_CPUS; ++cpu)

@@ -41,6 +41,7 @@ CACHE::CACHE(CACHE&& other)
       HIT_LATENCY(other.HIT_LATENCY), FILL_LATENCY(other.FILL_LATENCY), OFFSET_BITS(other.OFFSET_BITS), block(std::move(other.block)), MAX_TAG(other.MAX_TAG),
       MAX_FILL(other.MAX_FILL), prefetch_as_load(other.prefetch_as_load), match_offset_bits(other.match_offset_bits), virtual_prefetch(other.virtual_prefetch),
       pref_activate_mask(std::move(other.pref_activate_mask)), inclusion(other.inclusion), upper_caches(std::move(other.upper_caches)),
+      lower_cache(other.lower_cache),
 
       sim_stats(std::move(other.sim_stats)), roi_stats(std::move(other.roi_stats)),
 
@@ -81,6 +82,7 @@ auto CACHE::operator=(CACHE&& other) -> CACHE&
   this->pref_activate_mask = std::move(other.pref_activate_mask);
   this->inclusion = other.inclusion;
   this->upper_caches = std::move(other.upper_caches);
+  this->lower_cache = other.lower_cache;
 
   this->sim_stats = std::move(other.sim_stats);
   this->roi_stats = std::move(other.roi_stats);
@@ -96,13 +98,15 @@ auto CACHE::operator=(CACHE&& other) -> CACHE&
 
 CACHE::tag_lookup_type::tag_lookup_type(const request_type& req, bool local_pref, bool skip)
     : address(req.address), v_address(req.v_address), data(req.data), ip(req.ip), instr_id(req.instr_id), pf_metadata(req.pf_metadata), cpu(req.cpu),
-      type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), instr_depend_on_me(req.instr_depend_on_me)
+      type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), clean_writeback(req.clean_writeback),
+      instr_depend_on_me(req.instr_depend_on_me)
 {
 }
 
 CACHE::fill_type::fill_type(const tag_lookup_type& req, champsim::chrono::clock::time_point _time_enqueued)
     : address(req.address), v_address(req.v_address), ip(req.ip), instr_id(req.instr_id), cpu(req.cpu), type(req.type),
-      prefetch_from_this(req.prefetch_from_this), time_enqueued(_time_enqueued), instr_depend_on_me(req.instr_depend_on_me), to_return(req.to_return)
+      prefetch_from_this(req.prefetch_from_this), dirty(req.type == access_type::WRITE && !req.clean_writeback), time_enqueued(_time_enqueued),
+      instr_depend_on_me(req.instr_depend_on_me), to_return(req.to_return)
 {
 }
 
@@ -124,6 +128,7 @@ CACHE::fill_type CACHE::fill_type::merge(fill_type predecessor, fill_type succes
   retval.instr_depend_on_me = merged_instr;
   retval.to_return = merged_return;
   retval.data_promise = predecessor.data_promise;
+  retval.dirty = predecessor.dirty || successor.dirty;
 
   if constexpr (champsim::debug_print) {
     if (successor.type == access_type::PREFETCH) {
@@ -145,7 +150,7 @@ auto CACHE::fill_block(fill_type fill, uint32_t metadata) -> BLOCK
   CACHE::BLOCK to_fill;
   to_fill.valid = true;
   to_fill.prefetch = fill.prefetch_from_this;
-  to_fill.dirty = (fill.type == access_type::WRITE);
+  to_fill.dirty = fill.dirty;
   to_fill.address = fill.address;
   to_fill.v_address = fill.v_address;
   to_fill.data = fill.data_promise->data;
@@ -172,8 +177,26 @@ bool CACHE::handle_fill(const fill_type& fill)
 {
   cpu = fill.cpu;
 
-  // find victim
   auto [set_begin, set_end] = get_set_span(fill.address);
+
+  // An exclusive cache does not keep blocks that an upper-level cache is about to hold
+  const bool exclusive_skip = is_exclusive() && fill.type != access_type::WRITE && returns_only_to_upper_caches(fill.to_return);
+  if (exclusive_skip) {
+    ++sim_stats.excl_fills_skipped;
+    if (fill.type != access_type::PREFETCH)
+      sim_stats.total_miss_latency_cycles += (current_time - (fill.time_enqueued + clock_period)) / clock_period;
+    sim_stats.fill.increment(std::pair{fill.type, fill.cpu});
+
+    // Pass the block (and ownership of it, if it was dirty) up without allocating
+    response_type response{fill.address, fill.v_address, fill.data_promise->data, fill.data_promise->pf_metadata, fill.instr_depend_on_me};
+    response.dirty = fill.dirty;
+    for (auto* ret : fill.to_return) {
+      ret->push_back(response);
+    }
+    return true;
+  }
+
+  // find victim
   auto way = std::find_if_not(set_begin, set_end, [](auto x) { return x.valid; });
   if (way == set_end) {
     way = std::next(set_begin, impl_find_victim(fill.cpu, fill.instr_id, get_set_index(fill.address), &*set_begin, fill.ip, fill.address, fill.type));
@@ -183,8 +206,9 @@ bool CACHE::handle_fill(const fill_type& fill)
   assert(way != set_end || fill.type != access_type::WRITE); // Writes may not bypass
 
   // An inclusive cache may not bypass: every block held above must also be held here.
+  // A dirty block may not bypass either, or its data would be lost.
   // Replacement policies should consult bypass_allowed(); if one bypasses anyway, fall back to the first way.
-  if (way == set_end && !bypass_allowed()) {
+  if (way == set_end && (!bypass_allowed() || fill.dirty)) {
     way = set_begin;
   }
   const auto way_idx = std::distance(set_begin, way); // cast protected by earlier assertion
@@ -199,8 +223,10 @@ bool CACHE::handle_fill(const fill_type& fill)
   // the most recent data lives there, so the eviction must be written back even if our copy is clean.
   const bool evicting_valid = (way != set_end && way->valid);
   const bool upper_dirty = evicting_valid && is_inclusive() && upper_holds_dirty(way->address);
+  // An exclusive lower level is a victim cache for this one, so it receives clean evictions too
+  const bool lower_is_exclusive = (lower_cache != nullptr && lower_cache->is_exclusive());
 
-  if (evicting_valid && (way->dirty || upper_dirty)) {
+  if (evicting_valid && (way->dirty || upper_dirty || lower_is_exclusive)) {
     request_type writeback_packet;
 
     writeback_packet.cpu = fill.cpu;
@@ -211,6 +237,7 @@ bool CACHE::handle_fill(const fill_type& fill)
     writeback_packet.type = access_type::WRITE;
     writeback_packet.pf_metadata = way->pf_metadata;
     writeback_packet.response_requested = false;
+    writeback_packet.clean_writeback = !(way->dirty || upper_dirty);
 
     if constexpr (champsim::debug_print) {
       fmt::print("[{}] {} evict address: {} v_address: {} prefetch_metadata: {}\n", NAME, __func__, writeback_packet.address, writeback_packet.v_address,
@@ -300,16 +327,31 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
     sim_stats.hits.increment(std::pair{handle_pkt.type, handle_pkt.cpu});
 
     response_type response{handle_pkt.address, handle_pkt.v_address, way->data, metadata_thru, handle_pkt.instr_depend_on_me};
+
+    // An exclusive cache hands the block (and ownership of it, if dirty) to the upper-level cache that requested it
+    const bool exclusive_promote = is_exclusive() && handle_pkt.type != access_type::WRITE && returns_only_to_upper_caches(handle_pkt.to_return);
+    if (exclusive_promote) {
+      response.dirty = way->dirty;
+    }
+
     for (auto* ret : handle_pkt.to_return) {
       ret->push_back(response);
     }
 
-    way->dirty |= (handle_pkt.type == access_type::WRITE);
+    way->dirty |= (handle_pkt.type == access_type::WRITE && !handle_pkt.clean_writeback);
+    if (handle_pkt.clean_writeback) {
+      ++sim_stats.clean_victims_received;
+    }
 
     // update prefetch stats and reset prefetch bit
     if (useful_prefetch) {
       ++sim_stats.pf_useful;
       way->prefetch = false;
+    }
+
+    if (exclusive_promote) {
+      way->valid = false;
+      ++sim_stats.excl_promotions;
     }
   }
 
@@ -405,6 +447,10 @@ bool CACHE::handle_write(const tag_lookup_type& handle_pkt)
     fmt::print("[{}] {} instr_id: {} address: {} v_address: {} type: {} local_prefetch: {} cycle: {}\n", NAME, __func__, handle_pkt.instr_id,
                handle_pkt.address, handle_pkt.v_address, access_type_names.at(champsim::to_underlying(handle_pkt.type)), handle_pkt.prefetch_from_this,
                current_time.time_since_epoch() / clock_period);
+  }
+
+  if (handle_pkt.clean_writeback) {
+    ++sim_stats.clean_victims_received;
   }
 
   fill_type to_allocate{handle_pkt, current_time};
@@ -595,6 +641,24 @@ long CACHE::invalidate_entry(champsim::address inval_addr)
   return std::distance(begin, inv_way);
 }
 
+bool CACHE::returns_only_to_upper_caches(const std::vector<std::deque<response_type>*>& to_return) const
+{
+  auto is_upper_cache_channel = [this](const std::deque<response_type>* ret) {
+    return std::any_of(std::begin(upper_caches), std::end(upper_caches),
+                       [ret](const CACHE* ul) { return ul->lower_level != nullptr && &ul->lower_level->returned == ret; });
+  };
+  return !std::empty(to_return) && std::all_of(std::begin(to_return), std::end(to_return), is_upper_cache_channel);
+}
+
+bool CACHE::upper_holds_block(champsim::address addr) const
+{
+  return std::any_of(std::begin(upper_caches), std::end(upper_caches), [addr](const CACHE* ul) {
+    auto [begin, end] = ul->get_set_span(addr);
+    auto match = std::find_if(begin, end, [matcher = ul->matches_address(addr)](const auto& x) { return x.valid && matcher(x); });
+    return match != end || ul->upper_holds_block(addr);
+  });
+}
+
 bool CACHE::upper_holds_dirty(champsim::address addr) const
 {
   return std::any_of(std::begin(upper_caches), std::end(upper_caches), [addr](const CACHE* ul) {
@@ -677,6 +741,7 @@ void CACHE::finish_packet(const response_type& packet)
   // MSHR holds the most updated information about this request
   fill_type::returned_value finished_value{packet.data, packet.pf_metadata};
   mshr_entry->data_promise = champsim::waitable{finished_value, current_time + (warmup ? champsim::chrono::clock::duration{} : FILL_LATENCY)};
+  mshr_entry->dirty = mshr_entry->dirty || packet.dirty; // ownership of a dirty block handed up by an exclusive lower level
   if constexpr (champsim::debug_print) {
     fmt::print("[{}_MSHR] finish_packet instr_id: {} address: {} data: {} type: {} current: {}\n", this->NAME, mshr_entry->instr_id, mshr_entry->address,
                mshr_entry->data_promise->data, access_type_names.at(champsim::to_underlying(mshr_entry->type)), current_time.time_since_epoch() / clock_period);
@@ -936,6 +1001,9 @@ void CACHE::end_phase(unsigned finished_cpu)
   roi_stats.back_inval_issued = sim_stats.back_inval_issued;
   roi_stats.back_inval_received = sim_stats.back_inval_received;
   roi_stats.back_inval_dirty = sim_stats.back_inval_dirty;
+  roi_stats.excl_promotions = sim_stats.excl_promotions;
+  roi_stats.excl_fills_skipped = sim_stats.excl_fills_skipped;
+  roi_stats.clean_victims_received = sim_stats.clean_victims_received;
 
   for (auto* ul : upper_levels) {
     ul->roi_stats.RQ_ACCESS = ul->sim_stats.RQ_ACCESS;

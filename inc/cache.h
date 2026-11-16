@@ -72,6 +72,7 @@ class CACHE : public champsim::operable
     bool skip_fill;
     bool is_translated;
     bool translate_issued = false;
+    bool clean_writeback = false;
 
     uint8_t asid[2] = {std::numeric_limits<uint8_t>::max(), std::numeric_limits<uint8_t>::max()};
 
@@ -100,6 +101,7 @@ public:
 
     access_type type;
     bool prefetch_from_this;
+    bool dirty; // whether the block should be marked dirty when it is filled
 
     uint8_t asid[2] = {std::numeric_limits<uint8_t>::max(), std::numeric_limits<uint8_t>::max()};
 
@@ -176,13 +178,31 @@ public:
    */
   std::vector<CACHE*> upper_caches{};
 
+  /**
+   * The cache immediately below this one, if the lower level is a cache. Populated by the environment.
+   */
+  CACHE* lower_cache = nullptr;
+
   [[nodiscard]] bool is_inclusive() const { return inclusion == champsim::inclusion_policy::inclusive; }
+  [[nodiscard]] bool is_exclusive() const { return inclusion == champsim::inclusion_policy::exclusive; }
 
   /**
    * Whether a replacement policy is permitted to bypass a fill into this cache.
    * Bypassing an inclusive cache would violate inclusion, so it is disallowed there.
    */
   [[nodiscard]] bool bypass_allowed() const { return !is_inclusive(); }
+
+  /**
+   * Returns true if every destination in the list belongs to an upper-level cache, which will hold the block once it
+   * receives the response. Used by exclusive caches to decide whether to give up the block.
+   */
+  [[nodiscard]] bool returns_only_to_upper_caches(const std::vector<std::deque<response_type>*>& to_return) const;
+
+  /**
+   * Returns true if any cache above this one (transitively) holds a valid copy of the block.
+   * This is the residency query used by Query Based Selection (QBS).
+   */
+  [[nodiscard]] bool upper_holds_block(champsim::address addr) const;
 
   /**
    * Returns true if any cache above this one (transitively) holds a dirty copy of the block.

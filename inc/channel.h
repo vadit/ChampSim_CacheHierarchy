@@ -48,6 +48,7 @@ class channel
   struct request {
     bool is_translated = true;
     bool response_requested = true;
+    bool clean_writeback = false; // a WRITE carrying a clean victim to an exclusive lower level
 
     uint8_t asid[2] = {std::numeric_limits<uint8_t>::max(), std::numeric_limits<uint8_t>::max()};
     access_type type{access_type::LOAD};
@@ -70,6 +71,7 @@ class channel
     champsim::address data{};
     uint32_t pf_metadata = 0;
     std::vector<uint64_t> instr_depend_on_me{};
+    bool dirty = false; // the block was dirty in an exclusive lower level, which handed ownership to the requester
 
     response(champsim::address addr, champsim::address v_addr, champsim::address data_, uint32_t pf_meta, std::vector<uint64_t> deps)
         : address(addr), v_address(v_addr), data(data_), pf_metadata(pf_meta), instr_depend_on_me(deps)

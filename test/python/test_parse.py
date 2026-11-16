@@ -730,6 +730,14 @@ class InclusionPolicyTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(config.parse.parse_inclusion_policy(name), 'non_inclusive')
 
+    def test_parse_exclusive(self):
+        self.assertEqual(config.parse.parse_inclusion_policy('Exclusive'), 'exclusive')
+
+    def test_mixed_hierarchy(self):
+        result = self.inclusion_by_name({ 'ooo_cpu': [{ 'name': 'cpu0' }], 'L2C': { 'inclusion_policy': 'inclusive' }, 'LLC': { 'inclusion_policy': 'exclusive' } })
+        self.assertEqual(result['cpu0_L2C'], 'inclusive')
+        self.assertEqual(result['LLC'], 'exclusive')
+
     def test_unknown_name_raises(self):
         with self.assertRaises(ValueError):
             config.parse.parse_inclusion_policy('exclusive-ish')

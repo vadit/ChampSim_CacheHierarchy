@@ -29,24 +29,25 @@ struct two_level_hierarchy {
   to_rq_MRP mock_ul_read;
   to_wq_MRP mock_ul_write;
 
-  // A small upper cache that can hold both blocks, and a 1-way lower cache that can hold only one
-  CACHE upper{champsim::cache_builder{champsim::defaults::default_l2c}
-                  .name("454-upper")
-                  .sets(1)
-                  .ways(4)
-                  .upper_levels({{&mock_ul_read.queues, &mock_ul_write.queues}})
-                  .lower_level(&between)
-                  .hit_latency(hit_latency)
-                  .fill_latency(fill_latency)};
+  CACHE upper;
   CACHE lower;
 
   std::array<champsim::operable*, 5> elements{{&upper, &lower, &mock_ll, &mock_ul_read, &mock_ul_write}};
 
-  explicit two_level_hierarchy(champsim::inclusion_policy policy)
-      : lower{champsim::cache_builder{champsim::defaults::default_llc}
+  // By default, a small upper cache that can hold both blocks, and a 1-way lower cache that can hold only one
+  explicit two_level_hierarchy(champsim::inclusion_policy policy, uint32_t upper_ways = 4, uint32_t lower_ways = 1)
+      : upper{champsim::cache_builder{champsim::defaults::default_l2c}
+                  .name("454-upper")
+                  .sets(1)
+                  .ways(upper_ways)
+                  .upper_levels({{&mock_ul_read.queues, &mock_ul_write.queues}})
+                  .lower_level(&between)
+                  .hit_latency(hit_latency)
+                  .fill_latency(fill_latency)},
+        lower{champsim::cache_builder{champsim::defaults::default_llc}
                   .name("454-lower")
                   .sets(1)
-                  .ways(1)
+                  .ways(lower_ways)
                   .upper_levels({&between})
                   .lower_level(&mock_ll.queues)
                   .hit_latency(hit_latency)
@@ -54,6 +55,7 @@ struct two_level_hierarchy {
                   .inclusion(policy)}
   {
     lower.upper_caches = {&upper};
+    upper.lower_cache = &lower;
     for (auto elem : elements) {
       elem->initialize();
       elem->warmup = false;
@@ -248,5 +250,119 @@ SCENARIO("An inclusive cache does not allow fills to bypass")
       else
         CHECK(holds(uut, a));
     }
+  }
+}
+
+SCENARIO("An exclusive cache holds only blocks that the upper level does not")
+{
+  GIVEN("A 1-way upper cache above a 4-way exclusive lower cache")
+  {
+    two_level_hierarchy h{champsim::inclusion_policy::exclusive, 1, 4};
+    const champsim::address a{0xdeadbe40};
+    const champsim::address b{0xcafeba80};
+
+    WHEN("Block A is loaded")
+    {
+      REQUIRE(h.load(a, 1));
+
+      THEN("Only the upper level holds A")
+      {
+        CHECK(holds(h.upper, a));
+        CHECK_FALSE(holds(h.lower, a));
+        CHECK(h.lower.sim_stats.excl_fills_skipped == 1);
+      }
+
+      AND_WHEN("Block B is loaded, evicting clean A from the upper level")
+      {
+        REQUIRE(h.load(b, 2));
+
+        THEN("The clean victim A moves down to the lower level, and B is only in the upper level")
+        {
+          CHECK(holds(h.upper, b));
+          CHECK_FALSE(holds(h.upper, a));
+          CHECK(holds(h.lower, a));
+          CHECK_FALSE(holds_dirty(h.lower, a));
+          CHECK_FALSE(holds(h.lower, b));
+          CHECK(h.lower.sim_stats.clean_victims_received == 1);
+        }
+
+        THEN("The clean victim is not sent to memory")
+        {
+          CHECK(std::count(std::begin(h.mock_ll.addresses), std::end(h.mock_ll.addresses), a) == 1);
+        }
+
+        AND_WHEN("Block A is loaded again")
+        {
+          REQUIRE(h.load(a, 3));
+
+          THEN("A hits in the lower level and moves up, and B moves down")
+          {
+            CHECK(holds(h.upper, a));
+            CHECK_FALSE(holds(h.lower, a));
+            CHECK(holds(h.lower, b));
+            CHECK(h.lower.sim_stats.excl_promotions == 1);
+            CHECK(std::count(std::begin(h.mock_ll.addresses), std::end(h.mock_ll.addresses), a) == 1); // no second memory read
+          }
+        }
+      }
+    }
+
+    WHEN("Block A is loaded, dirtied in the upper level, and evicted by B")
+    {
+      REQUIRE(h.load(a, 1));
+      REQUIRE(h.writeback(a, 2));
+      REQUIRE(holds_dirty(h.upper, a));
+      REQUIRE(h.load(b, 3));
+
+      THEN("The lower level holds A dirty") { CHECK(holds_dirty(h.lower, a)); }
+
+      AND_WHEN("Block A is loaded again")
+      {
+        REQUIRE(h.load(a, 4));
+
+        THEN("Ownership of the dirty block moves up with it, without a writeback to memory")
+        {
+          CHECK(holds_dirty(h.upper, a));
+          CHECK_FALSE(holds(h.lower, a));
+          CHECK(std::count(std::begin(h.mock_ll.addresses), std::end(h.mock_ll.addresses), a) == 1);
+        }
+      }
+    }
+  }
+}
+
+SCENARIO("An exclusive cache with no upper-level caches allocates normally")
+{
+  GIVEN("An exclusive cache whose only requester is not a cache")
+  {
+    do_nothing_MRC mock_ll;
+    to_rq_MRP mock_ul;
+    CACHE uut{champsim::cache_builder{champsim::defaults::default_l1d}
+                  .name("454-excl-l1")
+                  .sets(1)
+                  .ways(2)
+                  .upper_levels({&mock_ul.queues})
+                  .lower_level(&mock_ll.queues)
+                  .hit_latency(2)
+                  .fill_latency(2)
+                  .set_exclusive()};
+    std::array<champsim::operable*, 3> elements{{&uut, &mock_ll, &mock_ul}};
+    for (auto elem : elements) {
+      elem->initialize();
+      elem->warmup = false;
+      elem->begin_phase();
+    }
+
+    decltype(mock_ul)::request_type pkt;
+    pkt.address = champsim::address{0xdeadbe40};
+    pkt.cpu = 0;
+    pkt.type = access_type::LOAD;
+    pkt.instr_id = 1;
+    mock_ul.issue(pkt);
+    for (int i = 0; i < 50; ++i)
+      for (auto elem : elements)
+        elem->_operate();
+
+    THEN("The block is filled") { CHECK(holds(uut, pkt.address)); }
   }
 }

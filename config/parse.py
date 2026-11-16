@@ -124,7 +124,8 @@ inclusion_policy_names = {
     'non-inclusive': 'non_inclusive',
     'non_inclusive': 'non_inclusive',
     'noninclusive': 'non_inclusive',
-    'nine': 'non_inclusive'
+    'nine': 'non_inclusive',
+    'exclusive': 'exclusive'
 }
 
 def parse_inclusion_policy(val, element_name='<root>'):

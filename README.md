@@ -49,7 +49,7 @@ The number of warmup and simulation instructions given will be the number of ins
 
 # Cache inclusion policy
 
-Caches can be configured as `"inclusive"` or `"non-inclusive"` (the default) with the `inclusion_policy` key, either at the top level of the configuration (applies to every data cache) or inside an individual cache (overrides the top-level value):
+Caches can be configured as `"inclusive"`, `"exclusive"`, or `"non-inclusive"` (the default) with the `inclusion_policy` key, either at the top level of the configuration (applies to every data cache) or inside an individual cache (overrides the top-level value):
 
 ```json
 {
@@ -58,11 +58,19 @@ Caches can be configured as `"inclusive"` or `"non-inclusive"` (the default) wit
 }
 ```
 
-An inclusive cache back-invalidates every upper-level copy of a block it evicts, writes the block back if any of those copies was dirty, and does not allow its replacement policy to bypass. See `docs/src/Creating-a-configuration-file.rst` for details.
+An inclusive cache back-invalidates every upper-level copy of a block it evicts, writes the block back if any of those copies was dirty, and does not allow its replacement policy to bypass. An exclusive cache acts as a victim cache for the caches above it: it receives all of their evictions (clean or dirty), passes misses up without allocating, and gives up a block when an upper cache hits on it. See `docs/src/Creating-a-configuration-file.rst` for details.
 
 # Mockingjay replacement policy
 
 `replacement/mockingjay` is a port of Mockingjay (Shah, Jain, Lin, HPCA 2022) to the modular replacement interface. Select it with `"replacement": "mockingjay"` (it is designed for the LLC). It derives its sampler and predictor sizes from the cache geometry, and it will not bypass in an inclusive cache.
+
+# Query Based Selection (QBS)
+
+`replacement/qbs_lru` and `replacement/qbs_srrip` implement Query Based Selection (Jaleel et al., MICRO 2010) on top of LRU and SRRIP. Before evicting a candidate, the cache asks the caches above it whether they still hold the block; if they do, the candidate is treated as a hit and the next candidate is tried. In an inclusive LLC this avoids inclusion victims. Select it with `"replacement": "qbs_lru"` or `"qbs_srrip"`. Each reports its query counts at the end of the run.
+
+# Baseline experiments
+
+`experiments/baseline/` contains scripts to generate, build and run the baseline configuration matrix on a SLURM cluster. See `experiments/baseline/README.md`.
 
 # Add your own branch predictor, data prefetchers, and replacement policy
 **Copy an empty template**

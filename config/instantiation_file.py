@@ -320,12 +320,16 @@ def get_queue_info(ul_pairs, decoration):
 def get_upper_cache_links(caches):
     '''
     Generate C++ statements that tell each cache which caches sit directly above it.
-    These links are used to enforce the inclusion policy (back-invalidation).
+    These links are used to enforce the inclusion policy (back-invalidation, exclusive victim handling).
     '''
     for i, cache in enumerate(caches):
         uppers = [j for j, other in enumerate(caches) if other.get('lower_level') == cache['name']]
         if uppers:
             yield f'caches.at({i}).upper_caches = {{{", ".join(f"&caches.at({j})" for j in uppers)}}}; // {cache["name"]}'
+    names = [c['name'] for c in caches]
+    for i, cache in enumerate(caches):
+        if cache.get('lower_level') in names:
+            yield f'caches.at({i}).lower_cache = &caches.at({names.index(cache["lower_level"])}); // {cache["name"]} -> {cache["lower_level"]}'
 
 def get_instantiation_lines(cores, caches, ptws, pmem, vmem, build_id):
     '''

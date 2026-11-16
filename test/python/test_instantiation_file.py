@@ -317,7 +317,10 @@ class UpperCacheLinkTest(unittest.TestCase):
         lines = list(config.instantiation_file.get_upper_cache_links(caches))
         self.assertEqual(lines, [
             'caches.at(0).upper_caches = {&caches.at(1)}; // LLC',
-            'caches.at(1).upper_caches = {&caches.at(2), &caches.at(3)}; // L2C'
+            'caches.at(1).upper_caches = {&caches.at(2), &caches.at(3)}; // L2C',
+            'caches.at(1).lower_cache = &caches.at(0); // L2C -> LLC',
+            'caches.at(2).lower_cache = &caches.at(1); // L1D -> L2C',
+            'caches.at(3).lower_cache = &caches.at(1); // L1I -> L2C'
         ])
 
     def test_inclusion_builder_part(self):

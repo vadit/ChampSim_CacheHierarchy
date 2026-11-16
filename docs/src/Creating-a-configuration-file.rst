@@ -82,7 +82,7 @@ Cache inclusion policy
 --------------------------
 
 Each cache has an inclusion policy that describes its relationship to the caches above it.
-Two policies are supported:
+Three policies are supported:
 
 ``"non-inclusive"`` (default)
     The contents of the cache are independent of the upper levels. This is ChampSim's historical behavior
@@ -95,6 +95,19 @@ Two policies are supported:
     back-invalidated. If any of those copies was dirty, the eviction is written back to the lower level even
     when this cache's copy was clean. Fills into an inclusive cache may not bypass; replacement policies can
     check ``CACHE::bypass_allowed()``.
+
+``"exclusive"``
+    A block is held either by this cache or by the caches above it, never both. The cache acts as a victim cache:
+    misses from an upper-level cache are passed up without allocating here, a demand hit from an upper-level cache
+    moves the block up (invalidating it here, and handing over ownership if it was dirty), and the upper-level caches
+    send every eviction here, clean or dirty. Clean victims are not written to memory. Requests that do not come
+    from an upper-level cache (for example, from a core) are handled as in a non-inclusive cache, so marking an L1
+    cache exclusive has no effect.
+
+    Because every fill into an exclusive cache is an upper-level eviction, it arrives as a ``WRITE`` access with no
+    instruction pointer. Replacement policies that treat writebacks as dead or that train on the PC (for example,
+    SHiP and Mockingjay) will behave very differently in an exclusive cache. In the statistics, these fills appear
+    as ``WRITE`` misses, so compute demand MPKI from the ``LOAD`` and ``RFO`` rows rather than ``TOTAL``.
 
 The policy can be set for the whole data-cache hierarchy with a top-level key::
 
@@ -121,6 +134,20 @@ Caches that perform back-invalidations report them in the statistics::
 ``ISSUED`` counts upper-level blocks invalidated by this cache's evictions, ``RECEIVED`` counts blocks in this
 cache invalidated by a lower inclusive cache, and ``DIRTY WRITEBACKS`` counts evictions that were written back
 only because an upper copy was dirty.
+
+Exclusive caches report::
+
+    LLC EXCLUSIVE PROMOTIONS:     464545 FILLS SKIPPED:     519154 CLEAN VICTIMS RECEIVED:     592511
+
+``PROMOTIONS`` counts hits that moved a block up, ``FILLS SKIPPED`` counts misses that were passed up without
+allocating, and ``CLEAN VICTIMS RECEIVED`` counts clean upper-level evictions inserted into the cache.
+
+Policies can be mixed across levels, for example an inclusive L2C above an exclusive LLC::
+
+    {
+        "L2C": { "inclusion_policy": "inclusive" },
+        "LLC": { "inclusion_policy": "exclusive" }
+    }
 
 --------------------------
 Multi-core configurations

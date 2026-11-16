@@ -17,5 +17,8 @@ cache_stats operator-(cache_stats lhs, cache_stats rhs)
   result.back_inval_issued = lhs.back_inval_issued - rhs.back_inval_issued;
   result.back_inval_received = lhs.back_inval_received - rhs.back_inval_received;
   result.back_inval_dirty = lhs.back_inval_dirty - rhs.back_inval_dirty;
+  result.excl_promotions = lhs.excl_promotions - rhs.excl_promotions;
+  result.excl_fills_skipped = lhs.excl_fills_skipped - rhs.excl_fills_skipped;
+  result.clean_victims_received = lhs.clean_victims_received - rhs.clean_victims_received;
   return result;
 }

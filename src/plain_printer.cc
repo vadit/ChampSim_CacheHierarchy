@@ -129,6 +129,11 @@ std::vector<std::string> champsim::plain_printer::format(CACHE::stats_type stats
                                 stats.back_inval_received, stats.back_inval_dirty));
   }
 
+  if (stats.excl_promotions > 0 || stats.excl_fills_skipped > 0 || stats.clean_victims_received > 0) {
+    lines.push_back(fmt::format("{} EXCLUSIVE PROMOTIONS: {:10} FILLS SKIPPED: {:10} CLEAN VICTIMS RECEIVED: {:10}", stats.name, stats.excl_promotions,
+                                stats.excl_fills_skipped, stats.clean_victims_received));
+  }
+
   return lines;
 }
 

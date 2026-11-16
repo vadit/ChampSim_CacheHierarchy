@@ -1,0 +1,4 @@
+# Scripts run on Linux (Grace); keep LF line endings even in a Windows checkout
+*.sh text eol=lf
+*.slurm text eol=lf
+*.py text eol=lf
