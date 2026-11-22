@@ -37,6 +37,7 @@ for cfg in "${CONFIGS[@]}"; do
   name="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["executable_name"])' "$cfg")"
   echo "=== Building $name"
   ./config.sh "$cfg" > /dev/null
+  rm -f .csconfig/generated_environment.o .csconfig/generated_environment.d
   if make -j "$JOBS" > "$HERE/logs/build_${name}.log" 2>&1; then
     echo "    ok: bin/$name"
   else
