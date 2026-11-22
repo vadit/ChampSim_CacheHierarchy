@@ -36,7 +36,8 @@ for cfg in "${CONFIGS[@]}"; do
   cfg="$(cd "$(dirname "$cfg")" && pwd)/$(basename "$cfg")"
   name="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["executable_name"])' "$cfg")"
   echo "=== Building $name"
-  if ./config.sh "$cfg" > /dev/null && make -j "$JOBS" > "$HERE/logs/build_${name}.log" 2>&1; then
+  ./config.sh "$cfg" > /dev/null
+  if make -j "$JOBS" > "$HERE/logs/build_${name}.log" 2>&1; then
     echo "    ok: bin/$name"
   else
     echo "    FAILED (see experiments/baseline/logs/build_${name}.log)"
