@@ -18,14 +18,34 @@ import csv
 import glob
 import json
 import os
+import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+NAME_PATTERN = re.compile(r'^bl(?P<id>\d+)_(?P<mode>ni|incl)_l2(?P<l2_policy>[a-z_]+?)(?P<l2_kb>\d+)k_llc(?P<llc_policy>.+)$')
+
+
 def load_manifest():
     path = os.path.join(HERE, 'configs', 'manifest.csv')
+    if not os.path.exists(path):
+        return {}
     with open(path) as f:
         return {row['name']: row for row in csv.DictReader(f)}
+
+
+def config_metadata(config, manifest):
+    """
+    Metadata for a configuration, from manifest.csv or, failing that, from the configuration name itself.
+    Regenerating the configurations (e.g. with --qbs-l2 srrip) replaces manifest.csv, so older results
+    would otherwise lose their metadata.
+    """
+    if config in manifest:
+        return manifest[config]
+    m = NAME_PATTERN.match(config)
+    if not m:
+        return {}
+    return {'mode': 'inclusive' if m['mode'] == 'incl' else 'non-inclusive', 'l2_policy': m['l2_policy'], 'l2_kb': m['l2_kb'], 'llc_policy': m['llc_policy']}
 
 
 def find_cache(roi, suffix):
@@ -71,7 +91,7 @@ def collect(results_dir, manifest):
         except (OSError, ValueError, KeyError, IndexError) as e:
             print(f'Skipping {path}: {e}')
             continue
-        meta = manifest.get(config, {})
+        meta = config_metadata(config, manifest)
         rows.append({'config': config, 'trace': trace, 'mode': meta.get('mode', ''), 'l2_policy': meta.get('l2_policy', ''),
                      'l2_kb': meta.get('l2_kb', ''), 'llc_policy': meta.get('llc_policy', ''), **row})
     return rows
