@@ -1,0 +1,12 @@
+g++ @global.options @absolute.options -MM -MT .csconfig/2539252a2fdbe9b2_main.d -MT .csconfig/2539252a2fdbe9b2_main.o -I.csconfig -DCHAMPSIM_BUILD=0x2539252a2fdbe9b2 -MF .csconfig/2539252a2fdbe9b2_main.d src/main.cc
+g++ @global.options @absolute.options -MM -MT .csconfig/generated_environment.d -MT .csconfig/generated_environment.o -I.csconfig -MF .csconfig/generated_environment.d src/generated_environment.cc
+In file included from src/generated_environment.cc:3:
+.csconfig/core_inst.inc:6:10: fatal error: environment.h: No such file or directory
+    6 | #include "environment.h"
+      |          ^~~~~~~~~~~~~~~
+compilation terminated.
+src/main.cc:25:10: fatal error: cache.h: No such file or directory
+   25 | #include "cache.h" // for CACHE
+      |          ^~~~~~~~~
+compilation terminated.
+make: *** No rule to make target '/scratch/user/aditav0630/cache_hierarchy_agent/ChampSim_CacheHierarchy/inc/register_allocator.h', needed by '.csconfig/register_allocator.o'.  Stop.

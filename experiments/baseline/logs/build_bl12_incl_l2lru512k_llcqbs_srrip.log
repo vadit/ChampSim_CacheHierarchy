@@ -1,16 +1,12 @@
-g++ @global.options @absolute.options -MM -MT .csconfig/0f618825ff42ab78_main.d -MT .csconfig/0f618825ff42ab78_main.o -I.csconfig -DCHAMPSIM_BUILD=0x0f618825ff42ab78 -MF .csconfig/0f618825ff42ab78_main.d src/main.cc
+g++ @global.options @absolute.options -MM -MT .csconfig/e133210a8a124ea1_main.d -MT .csconfig/e133210a8a124ea1_main.o -I.csconfig -DCHAMPSIM_BUILD=0xe133210a8a124ea1 -MF .csconfig/e133210a8a124ea1_main.d src/main.cc
 g++ @global.options @absolute.options -MM -MT .csconfig/generated_environment.d -MT .csconfig/generated_environment.o -I.csconfig -MF .csconfig/generated_environment.d src/generated_environment.cc
-g++ @global.options @absolute.options -MM -MT .csconfig/TEST_main.d -MT .csconfig/TEST_main.o -I.csconfig -DCHAMPSIM_BUILD=0xTEST -MF .csconfig/TEST_main.d src/main.cc
-g++ @global.options @absolute.options -I.csconfig -DCHAMPSIM_BUILD=0x0f618825ff42ab78  -c -o .csconfig/0f618825ff42ab78_main.o src/main.cc
-g++ -L/scratch/user/aditav0630/cache_hierarchy_agent/ChampSim_CacheHierarchy/vcpkg_installed/x64-linux/lib -L/scratch/user/aditav0630/cache_hierarchy_agent/ChampSim_CacheHierarchy/vcpkg_installed/x64-linux/lib/manual-link -o bin/bl12_incl_l2lru512k_llcqbs_srrip .csconfig/register_allocator.o .csconfig/ptw_builder.o .csconfig/chrono.o .csconfig/cache_stats.o .csconfig/ptw.o .csconfig/channel.o .csconfig/generated_environment.o .csconfig/address.o .csconfig/bandwidth.o .csconfig/plain_printer.o .csconfig/json_printer.o .csconfig/extent.o .csconfig/tracereader.o .csconfig/ooo_cpu.o .csconfig/0f618825ff42ab78_main.o .csconfig/cache.o .csconfig/champsim.o .csconfig/core_stats.o .csconfig/dram_stats.o .csconfig/dram_controller.o .csconfig/operable.o .csconfig/vmem.o .csconfig/modules.o .csconfig/modules/branch/gshare/gshare.o .csconfig/modules/branch/hashed_perceptron/hashed_perceptron.o .csconfig/modules/branch/perceptron/perceptron.o .csconfig/modules/branch/bimodal/bimodal.o .csconfig/modules/btb/basic_btb/basic_btb.o .csconfig/modules/btb/basic_btb/indirect_predictor.o .csconfig/modules/btb/basic_btb/return_stack.o .csconfig/modules/btb/basic_btb/direct_predictor.o .csconfig/modules/prefetcher/no/no.o .csconfig/modules/prefetcher/next_line/next_line.o .csconfig/modules/prefetcher/ip_stride/ip_stride.o .csconfig/modules/prefetcher/va_ampm_lite/va_ampm_lite.o .csconfig/modules/prefetcher/spp_dev/spp_dev.o .csconfig/modules/replacement/srrip/srrip.o .csconfig/modules/replacement/lru/lru.o .csconfig/modules/replacement/qbs_lru/qbs_lru.o .csconfig/modules/replacement/ship/ship.o .csconfig/modules/replacement/drrip/drrip.o .csconfig/modules/replacement/mockingjay/mockingjay.o .csconfig/modules/replacement/qbs_srrip/qbs_srrip.o .csconfig/modules/replacement/random/random.o  -lCLI11 -llzma -lz -lbz2 -lfmt
-/sw/eb/sw/binutils/2.42-GCCcore-13.3.0/bin/ld: .csconfig/0f618825ff42ab78_main.o: in function `std::_Function_handler<void (long), main::{lambda(auto:1)#1}>::_M_invoke(std::_Any_data const&, long&&)':
-main.cc:(.text+0x15b): undefined reference to `champsim::configured::generated_environment<1108316680087579512ull>::cpu_view()'
-/sw/eb/sw/binutils/2.42-GCCcore-13.3.0/bin/ld: .csconfig/0f618825ff42ab78_main.o: in function `main':
-main.cc:(.text.startup+0xbb3): undefined reference to `champsim::configured::generated_environment<1108316680087579512ull>::generated_environment()'
-/sw/eb/sw/binutils/2.42-GCCcore-13.3.0/bin/ld: main.cc:(.text.startup+0x1a18): undefined reference to `champsim::configured::generated_environment<1108316680087579512ull>::cpu_view()'
-/sw/eb/sw/binutils/2.42-GCCcore-13.3.0/bin/ld: main.cc:(.text.startup+0x1b2f): undefined reference to `champsim::configured::generated_environment<1108316680087579512ull>::cache_view()'
-/sw/eb/sw/binutils/2.42-GCCcore-13.3.0/bin/ld: main.cc:(.text.startup+0x1b75): undefined reference to `champsim::configured::generated_environment<1108316680087579512ull>::cache_view()'
-/sw/eb/sw/binutils/2.42-GCCcore-13.3.0/bin/ld: .csconfig/0f618825ff42ab78_main.o: in function `champsim::configured::generated_environment<1108316680087579512ull>::~generated_environment()':
-main.cc:(.text._ZN8champsim10configured21generated_environmentILy1108316680087579512EED2Ev[_ZN8champsim10configured21generated_environmentILy1108316680087579512EED5Ev]+0x1f): undefined reference to `vtable for champsim::configured::generated_environment<1108316680087579512ull>'
-collect2: error: ld returned 1 exit status
-make: *** [Makefile:299: bin/bl12_incl_l2lru512k_llcqbs_srrip] Error 1
+In file included from src/generated_environment.cc:3:
+.csconfig/core_inst.inc:6:10: fatal error: environment.h: No such file or directory
+    6 | #include "environment.h"
+      |          ^~~~~~~~~~~~~~~
+compilation terminated.
+src/main.cc:25:10: fatal error: cache.h: No such file or directory
+   25 | #include "cache.h" // for CACHE
+      |          ^~~~~~~~~
+compilation terminated.
+make: *** No rule to make target '/scratch/user/aditav0630/cache_hierarchy_agent/ChampSim_CacheHierarchy/inc/register_allocator.h', needed by '.csconfig/register_allocator.o'.  Stop.
