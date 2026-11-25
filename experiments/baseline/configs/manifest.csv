@@ -18,3 +18,4 @@ id,name,mode,l2_policy,l2_kb,llc_policy
 17,bl17_incl_l2lru1024k_llcsrrip,inclusive,lru,1024,srrip
 18,bl18_ni_l2lru512k_llcship,non-inclusive,lru,512,ship
 19,bl19_incl_l2lru512k_llcship,inclusive,lru,512,ship
+20,bl20_incl_l2lru512k_llcqbs_ship,inclusive,lru,512,qbs_ship

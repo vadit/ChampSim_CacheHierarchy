@@ -11,6 +11,7 @@ SLURM scripts can be executed directly with `SLURM_ARRAY_TASK_ID` set by hand.
 | 13–15 | non-inclusive | LRU | 1 MB | LRU, SRRIP, Mockingjay |
 | 16–17 | inclusive | LRU | 1 MB | LRU, SRRIP |
 | 18–19 | non-inclusive, inclusive | LRU | 512 KB | SHiP (skip with `--no-ship`) |
+| 20 | inclusive | best L2 from 7–10 (`--qbs-l2`) | 512 KB | QBS+SHiP |
 
 All configurations are single core with no prefetcher and a 2 MB, 16-way LLC. Mockingjay is only run non-inclusive,
 because an inclusive LLC suppresses its bypasses.
@@ -84,17 +85,17 @@ sbatch --array=1-<N>%100 experiments/baseline/run_array.slurm
 
 ### 6. Fix the QBS configurations
 
-QBS (11–12) is paired with the L2 policy of the best inclusive pair from 7–10. The default is LRU. If SRRIP at the
-L2 turns out better, regenerate and rerun only those two:
+QBS (11, 12 and 20) is paired with the L2 policy of the best inclusive pair from 7–10. The default is LRU. If SRRIP at the
+L2 turns out better, regenerate and rerun only those three:
 
 ```bash
 python3 experiments/baseline/gen_configs.py --qbs-l2 srrip
-bash experiments/baseline/build.sh experiments/baseline/configs/bl11_*.json experiments/baseline/configs/bl12_*.json
-python3 experiments/baseline/make_jobs.py --traces experiments/baseline/traces.txt --configs bl11 bl12
+bash experiments/baseline/build.sh experiments/baseline/configs/bl11_*.json experiments/baseline/configs/bl12_*.json experiments/baseline/configs/bl20_*.json
+python3 experiments/baseline/make_jobs.py --traces experiments/baseline/traces.txt --configs bl11 bl12 bl20
 sbatch --array=1-<N>%100 experiments/baseline/run_array.slurm
 ```
 
-The configuration names include the L2 policy, so the LRU and SRRIP versions of 11–12 keep separate results.
+The configuration names include the L2 policy, so the LRU and SRRIP versions keep separate results.
 
 ### 7. Collect
 
@@ -107,5 +108,5 @@ back-invalidations per kilo-instruction, and speedup over LRU/LRU in the same hi
 
 ## Cost
 
-With a 50M-instruction warmup and a 100M-instruction window, a run takes about 15 minutes. With SHiP included,
-19 configurations × 30 traces = 570 runs, or about 140 CPU-hours. Trace selection adds one run per candidate trace.
+With a 50M-instruction warmup and a 100M-instruction window, a run takes about 15 minutes. With SHiP and QBS+SHiP
+included, 20 configurations × 23 traces = 460 runs, or about 115 CPU-hours. Trace selection adds one run per candidate trace.

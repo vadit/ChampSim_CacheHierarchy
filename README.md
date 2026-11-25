@@ -66,7 +66,7 @@ An inclusive cache back-invalidates every upper-level copy of a block it evicts,
 
 # Query Based Selection (QBS)
 
-`replacement/qbs_lru` and `replacement/qbs_srrip` implement Query Based Selection (Jaleel et al., MICRO 2010) on top of LRU and SRRIP. Before evicting a candidate, the cache asks the caches above it whether they still hold the block; if they do, the candidate is treated as a hit and the next candidate is tried. In an inclusive LLC this avoids inclusion victims. Select it with `"replacement": "qbs_lru"` or `"qbs_srrip"`. Each reports its query counts at the end of the run.
+`replacement/qbs_lru`, `replacement/qbs_srrip` and `replacement/qbs_ship` implement Query Based Selection (Jaleel et al., MICRO 2010) on top of LRU, SRRIP and SHiP. Before evicting a candidate, the cache asks the caches above it whether they still hold the block; if they do, the candidate is treated as a hit and the next candidate is tried. In an inclusive LLC this avoids inclusion victims. Select it with `"replacement": "qbs_lru"`, `"qbs_srrip"` or `"qbs_ship"`. Only victim selection changes; `qbs_ship` keeps SHiP's insertion prediction and training exactly as in `replacement/ship`. Each reports its query counts at the end of the run.
 
 # Baseline experiments
 

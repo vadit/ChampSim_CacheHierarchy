@@ -13,6 +13,7 @@ Matrix (single core, no prefetcher, 2 MB LLC):
     16-17  inclusive      LLC {LRU, SRRIP}
   SHiP (optional, --no-ship to skip):
     18-19  {non-inclusive, inclusive}  L2 LRU x LLC SHiP
+    20     inclusive      L2 <--qbs-l2>   x LLC QBS+SHiP
 
 Mockingjay is only run non-inclusive, because an inclusive cache suppresses its bypasses.
 
@@ -62,10 +63,11 @@ def matrix(qbs_l2, include_ship):
     for llc in ('lru', 'srrip'):
         yield nxt(), 'inclusive', 'lru', LARGE_L2_SETS, llc
 
-    # SHiP
+    # SHiP, and QBS on SHiP (numbered last so the IDs of the earlier configurations do not change)
     if include_ship:
         for mode in ('non-inclusive', 'inclusive'):
             yield nxt(), mode, 'lru', DEFAULT_L2_SETS, 'ship'
+        yield nxt(), 'inclusive', qbs_l2, DEFAULT_L2_SETS, 'qbs_ship'
 
 
 def config_name(cid, mode, l2, l2_sets, llc):
@@ -79,8 +81,8 @@ def main():
     parser.add_argument('--base', default=os.path.join(REPO, 'champsim_config.json'), help='base configuration (default: the repository champsim_config.json)')
     parser.add_argument('--out', default=os.path.join(HERE, 'configs'), help='output directory')
     parser.add_argument('--qbs-l2', choices=('lru', 'srrip'), default='lru',
-                        help='L2 policy for the QBS configurations; set this to the L2 policy of the best inclusive pair from configs 7-10')
-    parser.add_argument('--no-ship', action='store_true', help='skip the SHiP configurations (18-19)')
+                        help='L2 policy for the QBS configurations (11, 12, 20); set this to the L2 policy of the best inclusive pair from configs 7-10')
+    parser.add_argument('--no-ship', action='store_true', help='skip the SHiP configurations (18-20)')
     args = parser.parse_args()
 
     with open(args.base) as f:
