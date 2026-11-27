@@ -3,8 +3,11 @@
 Collect baseline results into one CSV, and optionally select memory-intensive traces.
 
 Usage:
-  python3 experiments/baseline/collect_results.py [--results DIR] [--out results.csv]
+  python3 experiments/baseline/collect_results.py [--traces traces.txt] [--results DIR] [--out results.csv]
   python3 experiments/baseline/collect_results.py --select-traces --config bl01 --min-llc-mpki 1.0
+
+With --traces, only results for the traces listed in that file are kept, and any configuration that is missing
+one of them is reported, so the CSV contains exactly the final trace set and every average uses the same traces.
 
 Reads results/<config>/<trace>.json (ChampSim --json output) and writes one row per simulation with:
   IPC, LLC and L2 demand MPKI, back-invalidations per kilo-instruction, and speedup over the LRU/LRU
@@ -21,6 +24,8 @@ import os
 import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+from make_jobs import trace_stem  # same naming as the result files, so the two scripts always agree
 
 
 NAME_PATTERN = re.compile(r'^bl(?P<id>\d+)_(?P<mode>ni|incl)_l2(?P<l2_policy>[a-z_]+?)(?P<l2_kb>\d+)k_llc(?P<llc_policy>.+)$')
@@ -97,6 +102,32 @@ def collect(results_dir, manifest):
     return rows
 
 
+def read_trace_list(path):
+    with open(path) as f:
+        return [trace_stem(line.strip()) for line in f if line.strip() and not line.lstrip().startswith('#')]
+
+
+def filter_to_traces(rows, wanted, expected_configs=()):
+    """
+    Keep only rows for the wanted traces, and report configurations that are missing any of them,
+    including configurations in the manifest that have no results at all.
+    """
+    wanted_set = set(wanted)
+    kept = [r for r in rows if r['trace'] in wanted_set]
+    dropped = len(rows) - len(kept)
+
+    have = {config: set() for config in expected_configs}
+    for r in kept:
+        have.setdefault(r['config'], set()).add(r['trace'])
+    incomplete = {config: sorted(wanted_set - traces) for config, traces in sorted(have.items()) if wanted_set - traces}
+
+    print(f'Kept {len(kept)} rows for {len(wanted_set)} traces ({dropped} rows for other traces dropped)')
+    for config, missing in incomplete.items():
+        shown = ', '.join(missing[:5]) + (f', ... ({len(missing)} total)' if len(missing) > 5 else '')
+        print(f'Warning: {config} is missing {len(missing)} of {len(wanted_set)} traces: {shown}')
+    return kept
+
+
 def add_speedups(rows):
     """Speedup over the LRU/LRU configuration with the same mode and L2 size, on the same trace."""
     baseline = {(r['mode'], r['l2_kb'], r['trace']): r['ipc'] for r in rows if r['l2_policy'] == 'lru' and r['llc_policy'] == 'lru'}
@@ -109,6 +140,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--results', default=os.path.join(HERE, 'results'))
     parser.add_argument('--out', default=os.path.join(HERE, 'results.csv'))
+    parser.add_argument('--traces', help='keep only the traces listed in this file (one path per line), and report configurations missing any of them')
     parser.add_argument('--select-traces', action='store_true', help='print the traces whose LLC demand MPKI meets --min-llc-mpki under --config')
     parser.add_argument('--config', default='bl01', help='configuration used for trace selection (default: bl01, non-inclusive LRU/LRU)')
     parser.add_argument('--min-llc-mpki', type=float, default=1.0)
@@ -116,6 +148,8 @@ def main():
 
     manifest = load_manifest()
     rows = collect(args.results, manifest)
+    if args.traces:
+        rows = filter_to_traces(rows, read_trace_list(args.traces), expected_configs=manifest.keys())
     if not rows:
         print(f'No results found in {args.results}')
         return

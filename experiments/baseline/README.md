@@ -100,8 +100,12 @@ The configuration names include the L2 policy, so the LRU and SRRIP versions kee
 ### 7. Collect
 
 ```bash
-python3 experiments/baseline/collect_results.py
+python3 experiments/baseline/collect_results.py --traces experiments/baseline/traces.txt
 ```
+
+`--traces` keeps only the final trace set, dropping results left over from trace selection or earlier trace lists,
+so every average uses the same traces. It also warns about any configuration that is missing one of those traces,
+including configurations with no results at all.
 
 `results.csv` has one row per simulation: IPC, LLC and L2 demand MPKI (LOAD and RFO misses only), LLC
 back-invalidations per kilo-instruction, and speedup over LRU/LRU in the same hierarchy mode and L2 size.
