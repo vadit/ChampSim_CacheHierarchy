@@ -1,12 +1,6 @@
-g++ @global.options @absolute.options -MM -MT .csconfig/799370ffa8148105_main.d -MT .csconfig/799370ffa8148105_main.o -I.csconfig -DCHAMPSIM_BUILD=0x799370ffa8148105 -MF .csconfig/799370ffa8148105_main.d src/main.cc
+g++ @global.options @absolute.options -MM -MT .csconfig/7d21eaba944e36df_main.d -MT .csconfig/7d21eaba944e36df_main.o -I.csconfig -DCHAMPSIM_BUILD=0x7d21eaba944e36df -MF .csconfig/7d21eaba944e36df_main.d src/main.cc
 g++ @global.options @absolute.options -MM -MT .csconfig/generated_environment.d -MT .csconfig/generated_environment.o -I.csconfig -MF .csconfig/generated_environment.d src/generated_environment.cc
-In file included from src/generated_environment.cc:3:
-.csconfig/core_inst.inc:6:10: fatal error: environment.h: No such file or directory
-    6 | #include "environment.h"
-      |          ^~~~~~~~~~~~~~~
-compilation terminated.
-src/main.cc:25:10: fatal error: cache.h: No such file or directory
-   25 | #include "cache.h" // for CACHE
-      |          ^~~~~~~~~
-compilation terminated.
-make: *** No rule to make target '/scratch/user/aditav0630/cache_hierarchy_agent/ChampSim_CacheHierarchy/inc/register_allocator.h', needed by '.csconfig/register_allocator.o'.  Stop.
+g++ @global.options @absolute.options -MM -MT .csconfig/TEST_main.d -MT .csconfig/TEST_main.o -I.csconfig -DCHAMPSIM_BUILD=0xTEST -MF .csconfig/TEST_main.d src/main.cc
+g++ @global.options @absolute.options -I.csconfig  -c -o .csconfig/generated_environment.o src/generated_environment.cc
+g++ @global.options @absolute.options -I.csconfig -DCHAMPSIM_BUILD=0x7d21eaba944e36df  -c -o .csconfig/7d21eaba944e36df_main.o src/main.cc
+g++ -L/scratch/user/aditav0630/ChampSim_CacheHierarchy/vcpkg_installed/x64-linux/lib -L/scratch/user/aditav0630/ChampSim_CacheHierarchy/vcpkg_installed/x64-linux/lib/manual-link -o bin/bl18_ni_l2lru512k_llcship .csconfig/register_allocator.o .csconfig/ptw_builder.o .csconfig/chrono.o .csconfig/cache_stats.o .csconfig/ptw.o .csconfig/channel.o .csconfig/generated_environment.o .csconfig/address.o .csconfig/bandwidth.o .csconfig/plain_printer.o .csconfig/json_printer.o .csconfig/extent.o .csconfig/tracereader.o .csconfig/ooo_cpu.o .csconfig/7d21eaba944e36df_main.o .csconfig/cache.o .csconfig/champsim.o .csconfig/core_stats.o .csconfig/dram_stats.o .csconfig/dram_controller.o .csconfig/operable.o .csconfig/vmem.o .csconfig/modules.o .csconfig/modules/branch/gshare/gshare.o .csconfig/modules/branch/hashed_perceptron/hashed_perceptron.o .csconfig/modules/branch/perceptron/perceptron.o .csconfig/modules/branch/bimodal/bimodal.o .csconfig/modules/btb/basic_btb/basic_btb.o .csconfig/modules/btb/basic_btb/indirect_predictor.o .csconfig/modules/btb/basic_btb/return_stack.o .csconfig/modules/btb/basic_btb/direct_predictor.o .csconfig/modules/prefetcher/no/no.o .csconfig/modules/prefetcher/next_line/next_line.o .csconfig/modules/prefetcher/ip_stride/ip_stride.o .csconfig/modules/prefetcher/va_ampm_lite/va_ampm_lite.o .csconfig/modules/prefetcher/spp_dev/spp_dev.o .csconfig/modules/replacement/srrip/srrip.o .csconfig/modules/replacement/lru/lru.o .csconfig/modules/replacement/qbs_lru/qbs_lru.o .csconfig/modules/replacement/ship/ship.o .csconfig/modules/replacement/drrip/drrip.o .csconfig/modules/replacement/mockingjay/mockingjay.o .csconfig/modules/replacement/qbs_srrip/qbs_srrip.o .csconfig/modules/replacement/random/random.o  -lCLI11 -llzma -lz -lbz2 -lfmt

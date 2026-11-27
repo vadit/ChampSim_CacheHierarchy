@@ -1,42 +1,12 @@
-=== Building bl01_ni_l2lru512k_llclru
-    FAILED (see experiments/baseline/logs/build_bl01_ni_l2lru512k_llclru.log)
-=== Building bl02_ni_l2lru512k_llcsrrip
-    FAILED (see experiments/baseline/logs/build_bl02_ni_l2lru512k_llcsrrip.log)
-=== Building bl03_ni_l2lru512k_llcmockingjay
-    FAILED (see experiments/baseline/logs/build_bl03_ni_l2lru512k_llcmockingjay.log)
-=== Building bl04_ni_l2srrip512k_llclru
-    FAILED (see experiments/baseline/logs/build_bl04_ni_l2srrip512k_llclru.log)
-=== Building bl05_ni_l2srrip512k_llcsrrip
-    FAILED (see experiments/baseline/logs/build_bl05_ni_l2srrip512k_llcsrrip.log)
-=== Building bl06_ni_l2srrip512k_llcmockingjay
-    FAILED (see experiments/baseline/logs/build_bl06_ni_l2srrip512k_llcmockingjay.log)
-=== Building bl07_incl_l2lru512k_llclru
-    FAILED (see experiments/baseline/logs/build_bl07_incl_l2lru512k_llclru.log)
-=== Building bl08_incl_l2lru512k_llcsrrip
-    FAILED (see experiments/baseline/logs/build_bl08_incl_l2lru512k_llcsrrip.log)
-=== Building bl09_incl_l2srrip512k_llclru
-    FAILED (see experiments/baseline/logs/build_bl09_incl_l2srrip512k_llclru.log)
-=== Building bl10_incl_l2srrip512k_llcsrrip
-    FAILED (see experiments/baseline/logs/build_bl10_incl_l2srrip512k_llcsrrip.log)
 === Building bl11_incl_l2lru512k_llcqbs_lru
-    FAILED (see experiments/baseline/logs/build_bl11_incl_l2lru512k_llcqbs_lru.log)
+    ok: bin/bl11_incl_l2lru512k_llcqbs_lru
 === Building bl11_incl_l2srrip512k_llcqbs_lru
-    FAILED (see experiments/baseline/logs/build_bl11_incl_l2srrip512k_llcqbs_lru.log)
+    ok: bin/bl11_incl_l2srrip512k_llcqbs_lru
 === Building bl12_incl_l2lru512k_llcqbs_srrip
-    FAILED (see experiments/baseline/logs/build_bl12_incl_l2lru512k_llcqbs_srrip.log)
+    ok: bin/bl12_incl_l2lru512k_llcqbs_srrip
 === Building bl12_incl_l2srrip512k_llcqbs_srrip
-    FAILED (see experiments/baseline/logs/build_bl12_incl_l2srrip512k_llcqbs_srrip.log)
-=== Building bl13_ni_l2lru1024k_llclru
-    FAILED (see experiments/baseline/logs/build_bl13_ni_l2lru1024k_llclru.log)
-=== Building bl14_ni_l2lru1024k_llcsrrip
-    FAILED (see experiments/baseline/logs/build_bl14_ni_l2lru1024k_llcsrrip.log)
-=== Building bl15_ni_l2lru1024k_llcmockingjay
-    FAILED (see experiments/baseline/logs/build_bl15_ni_l2lru1024k_llcmockingjay.log)
-=== Building bl16_incl_l2lru1024k_llclru
-    FAILED (see experiments/baseline/logs/build_bl16_incl_l2lru1024k_llclru.log)
-=== Building bl17_incl_l2lru1024k_llcsrrip
-    FAILED (see experiments/baseline/logs/build_bl17_incl_l2lru1024k_llcsrrip.log)
-=== Building bl18_ni_l2lru512k_llcship
-    FAILED (see experiments/baseline/logs/build_bl18_ni_l2lru512k_llcship.log)
-=== Building bl19_incl_l2lru512k_llcship
-    FAILED (see experiments/baseline/logs/build_bl19_incl_l2lru512k_llcship.log)
+    ok: bin/bl12_incl_l2srrip512k_llcqbs_srrip
+=== Building bl20_incl_l2lru512k_llcqbs_ship
+    ok: bin/bl20_incl_l2lru512k_llcqbs_ship
+=== Building bl20_incl_l2srrip512k_llcqbs_ship
+    ok: bin/bl20_incl_l2srrip512k_llcqbs_ship
