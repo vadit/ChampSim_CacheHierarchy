@@ -1,11 +1,3 @@
-=== Building bl11_incl_l2lru512k_llcqbs_lru
-    ok: bin/bl11_incl_l2lru512k_llcqbs_lru
-=== Building bl11_incl_l2srrip512k_llcqbs_lru
-    ok: bin/bl11_incl_l2srrip512k_llcqbs_lru
-=== Building bl12_incl_l2lru512k_llcqbs_srrip
-    ok: bin/bl12_incl_l2lru512k_llcqbs_srrip
-=== Building bl12_incl_l2srrip512k_llcqbs_srrip
-    ok: bin/bl12_incl_l2srrip512k_llcqbs_srrip
 === Building bl20_incl_l2lru512k_llcqbs_ship
     ok: bin/bl20_incl_l2lru512k_llcqbs_ship
 === Building bl20_incl_l2srrip512k_llcqbs_ship
