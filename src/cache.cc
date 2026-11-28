@@ -151,6 +151,7 @@ auto CACHE::fill_block(fill_type fill, uint32_t metadata) -> BLOCK
   to_fill.valid = true;
   to_fill.prefetch = fill.prefetch_from_this;
   to_fill.dirty = fill.dirty;
+  to_fill.reused = false;
   to_fill.address = fill.address;
   to_fill.v_address = fill.v_address;
   to_fill.data = fill.data_promise->data;
@@ -339,6 +340,7 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
     }
 
     way->dirty |= (handle_pkt.type == access_type::WRITE && !handle_pkt.clean_writeback);
+    way->reused |= (handle_pkt.type != access_type::WRITE && handle_pkt.type != access_type::PREFETCH);
     if (handle_pkt.clean_writeback) {
       ++sim_stats.clean_victims_received;
     }
@@ -656,6 +658,15 @@ bool CACHE::upper_holds_block(champsim::address addr) const
     auto [begin, end] = ul->get_set_span(addr);
     auto match = std::find_if(begin, end, [matcher = ul->matches_address(addr)](const auto& x) { return x.valid && matcher(x); });
     return match != end || ul->upper_holds_block(addr);
+  });
+}
+
+bool CACHE::upper_block_rereferenced(champsim::address addr) const
+{
+  return std::any_of(std::begin(upper_caches), std::end(upper_caches), [addr](const CACHE* ul) {
+    auto [begin, end] = ul->get_set_span(addr);
+    auto match = std::find_if(begin, end, [matcher = ul->matches_address(addr)](const auto& x) { return x.valid && matcher(x); });
+    return (match != end && match->reused) || ul->upper_block_rereferenced(addr);
   });
 }
 

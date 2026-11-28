@@ -25,6 +25,7 @@ struct cache_block {
   bool valid = false;
   bool prefetch = false;
   bool dirty = false;
+  bool reused = false; // demand-referenced (LOAD, RFO or TRANSLATION hit) since it was filled
 
   champsim::address address{};
   champsim::address v_address{};

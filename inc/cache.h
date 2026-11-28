@@ -205,6 +205,12 @@ public:
   [[nodiscard]] bool upper_holds_block(champsim::address addr) const;
 
   /**
+   * Returns true if any cache above this one (transitively) holds a valid copy of the block that has had a demand hit
+   * (LOAD, RFO or TRANSLATION) since it was filled there.
+   */
+  [[nodiscard]] bool upper_block_rereferenced(champsim::address addr) const;
+
+  /**
    * Returns true if any cache above this one (transitively) holds a dirty copy of the block.
    */
   [[nodiscard]] bool upper_holds_dirty(champsim::address addr) const;
